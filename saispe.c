@@ -7,20 +7,48 @@
  *	license: TODO
 */
 
+/*
+ *	INTRO ---------------------------------------------------------------------
+ *
+ *		This file belongs to the Șaișpe project, which aims to be a simple and
+ *	literate COM assembler. Its original purpose was to aid the studying of
+ *	assemblers and their behaviour. I, the author, have chosen the COM format
+ *	as its output because of its simplicity; also, the negative aspects of the
+ *	format can be neglected, since they aren't in the way of the study.
+ *		I'm currently writing this project on a Linux box, so DOSBox is
+ *	essential in the development of this assembler. Also, I would recommend
+ *	Windows users to use DOSBox as well, since it will be the main target VM.
+ *		In order to view the contents of the file at its best, you will need
+ *	a text editor with syntax highlighting, configured with a tab space of 4,
+ *	and a minimum of 80 columns.
+ *		The assembler requires no libraries other than the C standard library,
+ *	and is compiled as such:
+ *
+ *		$ gcc saispe.c -o saispe -Wall -Wextra
+ *
+ *	TODO ----------------------------------------------------------------------
+ *
+ *
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#define SAISPE_COMMENT_CHARACTER '#'
+#define COMMENT_CHARACTER '#'
+#define STRING_DELIMITER '"'
 
-#define SAISPE_CODE 0
-#define SAISPE_DATA 1
-#define SAISPE_COMMENT 2
+#define MODE_CODE 0
+#define MODE_STRING 1
+#define MODE_COMMENT 2
 
 #define SAISPE_VERSION 1
 
-#define SAISPE_MAX_INPUT_FILES 16
-#define SAISPE_DEFAULT_OUTPUT_FILENAME "output.com"
-#define SAISPE_MAX_TOKEN_LENGTH 256
+#define MAX_INPUT_FILES 16
+#define DEFAULT_OUTPUT_FILENAME "output.com"
+#define MAX_TOKEN_LENGTH 256
+
+#define TOKEN_WORD 0
+#define TOKEN_STRING 1
 
 /*#include "saispe.h"
 */
@@ -28,7 +56,7 @@
 int saispe_verbose = 0;
 
 
-char *input_filename[SAISPE_MAX_INPUT_FILES];
+char *input_filename[MAX_INPUT_FILES];
 int input_files = 0;
 char *output_filename = NULL;
 FILE *input_file, *output_file;
@@ -47,52 +75,70 @@ void print_help( char* self )
 	);
 }
 
-int parse( char* token )
+int parse( char* token, int type )
 {
-	printf( ":: %s\n", token );
+	printf( "[%s] %s\n", (type==TOKEN_WORD)?"word":"string", token );
 }
 
 int tokenize( FILE *f )
 {
 	int cc;
-	char token[SAISPE_MAX_TOKEN_LENGTH];
+	char token[MAX_TOKEN_LENGTH];
 	int ti = 0;
 
-	int mode = SAISPE_CODE;
+	int mode = MODE_CODE;
 
 	while( !feof( f ) )
 	{
 		cc = fgetc( f );
 
-		/* TODO commenting breaks stuff */
-
-		if( ( cc == '\n' ) && ( mode == SAISPE_COMMENT ) )
+		if( mode == MODE_CODE )
 		{
-			printf( "jbang!\n" );
-			mode = SAISPE_CODE;
-		}
-
-		if(	( cc == ' ' ) ||
-			( cc == '\n' ) ||
-			( cc == '\t' ) )
-		{
-			if( mode == SAISPE_CODE )
+			if(	( cc == ' ' ) ||
+				( cc == '\n' ) ||
+				( cc == '\t' ) )
 			{
 				token[ti] = 0;
 				
 				if( ti > 0 )
-					parse( token );
+					parse( token, TOKEN_WORD );
 				
 				ti = 0;
 			}
+			else if ( cc == COMMENT_CHARACTER )
+			{
+				mode = MODE_COMMENT;
+			}
+			else if ( cc == STRING_DELIMITER )
+			{
+				mode = MODE_STRING;
+			}
+			else
+			{
+				token[ti++] = cc;
+			}
 		}
-		else if ( cc == SAISPE_COMMENT_CHARACTER )
+		else if( mode == MODE_COMMENT )
 		{
-			mode = SAISPE_COMMENT;
+			if( cc == '\n' )
+				mode = MODE_CODE;	
 		}
-		else
+		else if( mode == MODE_STRING )
 		{
-			token[ti++] = cc;
+			/* TODO escapes */
+
+			if( cc == STRING_DELIMITER )
+			{
+				token[ti] = 0;
+				
+				/* empty strings are allowed */
+				parse( token, TOKEN_STRING );
+
+				ti = 0;
+				mode = MODE_CODE;
+			}
+			else
+				token[ti++] = cc;
 		}
 	}
 
@@ -142,7 +188,7 @@ int main( int argc, char** argv )
 	}
 
 	if( output_filename == NULL )
-		output_filename = SAISPE_DEFAULT_OUTPUT_FILENAME;
+		output_filename = DEFAULT_OUTPUT_FILENAME;
 
 	/* start tokenizing each file, in given order */
 
