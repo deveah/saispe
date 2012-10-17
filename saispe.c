@@ -28,15 +28,20 @@
  *
  *	TODO ----------------------------------------------------------------------
  *
- *
+ *		
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 
+/*	delimiter defines;
+ *	if a line contatins COMMENT_CHARACTER, it will be treated from that moment
+ *	on as a comment
+*/
 #define COMMENT_CHARACTER '#'
 #define STRING_DELIMITER '"'
 
+/*	modes needed when passing through the input files */
 #define MODE_CODE 0
 #define MODE_STRING 1
 #define MODE_COMMENT 2
@@ -47,18 +52,21 @@
 #define DEFAULT_OUTPUT_FILENAME "output.com"
 #define MAX_TOKEN_LENGTH 256
 
+/*	token types */
 #define TOKEN_WORD 0
 #define TOKEN_STRING 1
 
-/*#include "saispe.h"
-*/
-
+/*	verbose flag - either 0 (false) or 1 (true) */
 int saispe_verbose = 0;
 
-
+/*	the array of input file paths, and the total input file count */
 char *input_filename[MAX_INPUT_FILES];
 int input_files = 0;
+
 char *output_filename = NULL;
+
+/*	file handles for input and output;
+ *	only one input file handle is needed since all lexing is done sequentially */
 FILE *input_file, *output_file;
 
 void print_help( char* self )
@@ -75,11 +83,17 @@ void print_help( char* self )
 	);
 }
 
+/*	the function that parses the tokens;
+ *	TODO
+*/
 int parse( char* token, int type )
 {
 	printf( "[%s] %s\n", (type==TOKEN_WORD)?"word":"string", token );
 }
 
+/*	the function that scans through a file and passes the resulting tokens to
+ *	the parser; TODO
+*/
 int tokenize( FILE *f )
 {
 	int cc;
@@ -171,9 +185,9 @@ int main( int argc, char** argv )
 
 			if( argv[i][1] == 'o' )
 			{
-				if( argc < i+1 )
+				if( argc < i+2 )
 				{
-					printf( "saispe: incomplete argument\n" );
+					printf( "saispe: incomplete commandline argument\n" );
 					return -1;
 				}
 
@@ -190,6 +204,9 @@ int main( int argc, char** argv )
 	if( output_filename == NULL )
 		output_filename = DEFAULT_OUTPUT_FILENAME;
 
+	/* open the output file */
+	output_file = fopen( output_filename, "w" );
+
 	/* start tokenizing each file, in given order */
 
 	for( i = 0; i < input_files; i++ )
@@ -205,6 +222,8 @@ int main( int argc, char** argv )
 
 		fclose( input_file );
 	}
+
+	fclose( output_file );
 
 	return 0;
 }
