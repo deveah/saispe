@@ -33,6 +33,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 /*	delimiter defines;
  *	if a line contatins COMMENT_CHARACTER, it will be treated from that moment
@@ -55,6 +57,9 @@
 /*	token types */
 #define TOKEN_WORD 0
 #define TOKEN_STRING 1
+#define TOKEN_NUMBER 2
+#define TOKEN_POINTER_NAMED 3
+#define TOKEN_POINTER_VALUE 4
 
 /*	verbose flag - either 0 (false) or 1 (true) */
 int saispe_verbose = 0;
@@ -86,9 +91,52 @@ void print_help( char* self )
 /*	the function that parses the tokens;
  *	TODO
 */
-int parse( char* token, int type )
+int parse( void *token, int type )
 {
-	printf( "[%s] %s\n", (type==TOKEN_WORD)?"word":"string", token );
+	switch( type )
+	{
+		case TOKEN_WORD:
+			printf( "[word] %s\n", (char*)token );
+			break;
+		case TOKEN_NUMBER:
+			printf( "[number] %i\n", (int)token );
+			break;
+		case TOKEN_STRING:
+			printf( "[string] \"%s\"\n", (char*)token );
+			break;
+		case TOKEN_POINTER_NAMED:
+			printf( "[nptr] %s\n", (char*)token );
+			break;
+		case TOKEN_POINTER_VALUE:
+			printf( "[vptr] 0x%08x\n", (int)token );
+			break;
+	}
+}
+
+/*	checks whether the string only contains digits */
+int isnumber( char *s )
+{
+	int i = 0;
+	while( s[i] != 0 )
+	{
+		if( !isdigit( s[i] ) )
+			return 0;
+		i++;
+	}
+	return 1;
+}
+
+/*	checks whether the string only contains hexadecimal digits */
+int isxnumber( char *s )
+{
+	int i = 0;
+	while( s[i] != 0 )
+	{
+		if( !isxdigit( s[i] ) )
+			return 0;
+		i++;
+	}
+	return 1;
 }
 
 /*	the function that scans through a file and passes the resulting tokens to
@@ -115,8 +163,40 @@ int tokenize( FILE *f )
 				token[ti] = 0;
 				
 				if( ti > 0 )
-					parse( token, TOKEN_WORD );
-				
+				{
+					/*	check whether the token is a number
+						acceptable formats:
+							hex - prefixed by '0x'
+							integer - no additional markers
+					*/
+					if(	( token[0] == '0' ) && ( token[1] == 'x' ) )
+					{
+						int temp = strtol( token, NULL, 16 );
+						parse( temp, TOKEN_NUMBER );
+					}
+					else if( isnumber( token ) )
+					{
+						int temp = strtol( token, NULL, 10 );
+						parse( temp, TOKEN_NUMBER );
+					}
+
+					/*	check whether the token is a pointer
+						format: prefixed by '@' - either number(hex) or named
+					*/
+					else if( token[0] == '@' )
+					{
+						if( isxnumber( token+1 ) )
+						{
+							int temp = strtol( token+1, NULL, 16 );
+							parse( temp, TOKEN_POINTER_VALUE );
+						}
+						else
+							parse( token+1, TOKEN_POINTER_NAMED );
+					}
+					else
+						parse( token, TOKEN_WORD );
+				}
+
 				ti = 0;
 			}
 			else if ( cc == COMMENT_CHARACTER )

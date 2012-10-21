@@ -7,5 +7,9 @@ text:
 main:
 	mov ah 0x09
 	mov dx @text
-	int 0x21
+	int 21h
 	ret
+
+foo:
+	call @cafebabe
+	int @deadbezf
